@@ -3,10 +3,12 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"net/mail"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pascaldekloe/mboxed"
 )
@@ -15,17 +17,18 @@ import (
 // the KeyFunc. KeyFunc may return an empty string to skip a message. Files are
 // not closed.
 type SplitWriter struct {
-	OutDir  string // base of output files
-	KeyFunc func(msg *mail.Message, raw []byte) string
-	PerKey  map[string]*bufio.Writer
+	OutDir     string // base of output files
+	KeyFunc    func(msg *mail.Message, raw []byte) string
+	KeyEscapes *strings.Replacer
+	PerKey     map[string]*bufio.Writer
 }
 
 // OnMessage implements mbox.MessageListener.
 func (split *SplitWriter) OnMessage(fromLine string, raw []byte, msg *mail.Message) {
-	// escape .. and such
-	key := filepath.Clean(split.KeyFunc(msg, raw))
-	if key == "." {
-		log.Printf("%s: %q skipped on missing key value", name, fromLine)
+	key := split.KeyEscapes.Replace(split.KeyFunc(msg, raw))
+	switch key {
+	case "", ".", "..":
+		log.Printf("%s: %q skipped on unusable key %q", name, fromLine, key)
 		return
 	}
 
@@ -52,22 +55,23 @@ var name = os.Args[0]
 // Command Invocation Options
 var (
 	headerFlag = flag.String("header", "", "Defines the header (`name`) used for file distribution.")
-	outDirFlag = flag.String("d", ".", "Sets the base `directory` for output files.")
+	outDirFlag = flag.String("d", ".", "Sets the `directory` for output files.")
+	escapeFlag = flag.String("escape", "_", fmt.Sprintf("Sets the `replacement` for %q occurences in output files.", filepath.Separator))
 )
 
 func main() {
 	log.SetFlags(0)
 	flag.Parse()
 
-	if info, err := os.Stat(*outDirFlag); err != nil {
+	err := os.MkdirAll(*outDirFlag, 0o755)
+	if err != nil && !os.IsExist(err) {
 		log.Fatalf("%s: %s", name, err)
-	} else if !info.IsDir() {
-		log.Fatalf("%s: %s not a directory", name, *outDirFlag)
 	}
 
 	split := SplitWriter{
-		OutDir: *outDirFlag,
-		PerKey: make(map[string]*bufio.Writer),
+		OutDir:     *outDirFlag,
+		KeyEscapes: strings.NewReplacer(string([]rune{filepath.Separator}), *escapeFlag),
+		PerKey:     make(map[string]*bufio.Writer),
 	}
 	if split.OutDir == "" {
 		split.OutDir = "."
@@ -83,7 +87,6 @@ func main() {
 	}
 
 	var failN int
-
 	for i := 0; flag.Arg(i) != ""; i++ {
 		err := mbox.ReadFile(flag.Arg(i), split.OnMessage)
 		if err != nil {
@@ -91,7 +94,6 @@ func main() {
 			failN++
 		}
 	}
-
 	for _, w := range split.PerKey {
 		err := w.Flush()
 		if err != nil {
