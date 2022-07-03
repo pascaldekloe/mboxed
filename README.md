@@ -35,6 +35,7 @@ mailboxes.
     	-tokentrim ',Archived' \
     	-tokentrim ',Category Personal' \
     	-tokentrim ',Category Promotions' \
+    	-tokentrim ',Category Purchases' \
     	-tokentrim ',Category Social' \
     	-tokentrim ',Category Travel' \
     	-tokentrim ',Category Updates' \
