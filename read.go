@@ -160,5 +160,7 @@ func IsFromLine(line []byte) bool {
 		return false
 	}
 
-	return true
+	addrLen := bytes.IndexByte(line[5:], ' ')
+	_, err := mail.ParseAddress(string(line[5 : 5+addrLen]))
+	return err == nil
 }
