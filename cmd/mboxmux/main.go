@@ -133,7 +133,7 @@ func trimToken(s, exclude string) string {
 	}
 
 	tokens := strings.Split(s, separator)
-	for i := len(tokens) - 1; i > 0; i-- {
+	for i := len(tokens) - 1; i >= 0; i-- {
 		if strings.TrimSpace(tokens[i]) == token {
 			// delete
 			tokens = append(tokens[:i], tokens[i+1:]...)
