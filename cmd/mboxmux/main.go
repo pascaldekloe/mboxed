@@ -28,8 +28,12 @@ func (split *SplitWriter) OnMessage(fromLine string, raw []byte, msg *mail.Messa
 	key := split.KeyEscapes.Replace(split.KeyFunc(msg, raw))
 	switch key {
 	case "", ".", "..":
-		log.Printf("%s: %q skipped on unusable key %q", name, fromLine, key)
-		return
+		if *defaultFlag != "" {
+			key = *defaultFlag
+		} else {
+			log.Printf("%s: %q skipped on output-file name %q; see -default option", name, fromLine[:len(fromLine)-2], key)
+			return
+		}
 	}
 
 	w, ok := split.PerKey[key]
@@ -54,9 +58,10 @@ var name = os.Args[0]
 
 // Command Invocation Options
 var (
-	headerFlag = flag.String("header", "", "Define the header (`name`) used for file distribution.")
-	outDirFlag = flag.String("d", ".", "Set the `directory` for output files.")
-	escapeFlag = flag.String("escape", "_", fmt.Sprintf("Sets the `replacement` for %q occurences in output files.", filepath.Separator))
+	headerFlag  = flag.String("header", "", "Define the header (`name`) used for file distribution.")
+	outDirFlag  = flag.String("d", ".", "Set the `directory` for output files.")
+	escapeFlag  = flag.String("escape", "_", fmt.Sprintf("Sets the `replacement` for %q occurences in output files.", filepath.Separator))
+	defaultFlag = flag.String("default", "", "Sets a default output `file-name` for messages that would have been omitted otherwise, which are no name, . and .. specifically.")
 )
 
 var tokenTrims []string
